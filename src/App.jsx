@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "jsoneditor/dist/jsoneditor.css";
 import "@arco-design/web-react/dist/css/arco.css";
-import { Button, Modal, Space, Message, Input } from "@arco-design/web-react";
+import { Button, Input, Space, Message, Tabs, Table, Radio, Modal } from "@arco-design/web-react";
 import { writeTextFile, BaseDirectory, readTextFile, exists, create, mkdir } from '@tauri-apps/plugin-fs';
 import { IconSave, IconImport, IconFire, IconAlignLeft, IconRefresh, IconAlignRight, IconCopy } from "@arco-design/web-react/icon";
 import JSONEditor from 'jsoneditor';
@@ -10,21 +10,7 @@ import { save, open } from '@tauri-apps/plugin-dialog';
 import invoke from "@/util/invoke";
 import jsonToGo from "@/util/json-to-go";
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-const loadJSONEditor = (initValue, onValidate, onChangeText) => {
-    const container = document.getElementById("jsoneditor")
-    const options = {
-        mode: 'code',
-        indentation: 4,
-        onValidate: onValidate,
-        templates: {},
-        onChangeText: onChangeText,
-    };
-    let jsoneditor = new JSONEditor(container, options);
-    console.log("loadJSONEditor")
-    jsoneditor.set(initValue);
-    return jsoneditor
-}
-
+const TabPane = Tabs.TabPane;
 var getCurrent = async () => {
     try {
         let value = await readTextFile('current.json', { baseDir: BaseDirectory.AppData });
@@ -59,92 +45,72 @@ var getJsonHeight = () => {
     return document.documentElement.clientHeight - 70
 }
 
+const columns = [
+    {
+        title: 'Name',
+        dataIndex: 'name',
+    },
+    {
+        title: 'Salary',
+        dataIndex: 'salary',
+    },
+    {
+        title: 'Address',
+        dataIndex: 'address',
+    },
+    {
+        title: 'Email',
+        dataIndex: 'email',
+    },
+];
+const data = [
+    {
+        key: '1',
+        name: 'Jane Doe',
+        salary: 23000,
+        address: '32 Park Road, London',
+        email: 'jane.doe@example.com',
+    },
+    {
+        key: '2',
+        name: 'Alisa Ross',
+        salary: 25000,
+        address: '35 Park Road, London',
+        email: 'alisa.ross@example.com',
+    },
+    {
+        key: '3',
+        name: 'Kevin Sandra',
+        salary: 22000,
+        address: '31 Park Road, London',
+        email: 'kevin.sandra@example.com',
+    },
+    {
+        key: '4',
+        name: 'Ed Hellen',
+        salary: 17000,
+        address: '42 Park Road, London',
+        email: 'ed.hellen@example.com',
+    },
+    {
+        key: '5',
+        name: 'William Smith',
+        salary: 27000,
+        address: '62 Park Road, London',
+        email: 'william.smith@example.com',
+    },
+];
+
 
 var editor = null;
 function App1() {
     const [jsonHeight, setJsonHeight] = useState(400)
 
     useEffect(() => {
-        getCurrent().then((value) => {
-            if (editor == null) {
-                let data = JSON.parse(value)
-                editor = loadJSONEditor(data, (value) => {
-                    setCurrent(JSON.stringify(value))
-                }, null)
-            }
-        }).catch((e) => {
-            console.log(e)
-        })
-
-        setJsonHeight(getJsonHeight())
-        window.onresize = () => {
-            setJsonHeight(getJsonHeight())
-        };
     }, [])
 
-    var loadJSON = async () => {
-        let file = await open({
-            multipart: false,
-            filters: [
-                {
-                    name: "",
-                    extensions: ["json"],
-                },
-            ],
-        });
-        if (file == null) return;
-        let content = await invoke.readFile(file);
-        try {
-            editor.setText(content)
-        } catch (e) {
-            Message.error("文件格式错误")
-        }
-    }
-    var saveJSON = async () => {
-        let file = await save({
-            title: dayjs().format("YYYY-MM-DD-HH-mm-ss") + ".json",
-            filters: [
-                {
-                    name: dayjs().format("YYYY-MM-DD-HH-mm-ss"),
-                    extensions: ["json"],
-                },
-            ],
-        });
-        if (file == null) return;
-        await invoke.writeFile(file, JSON.stringify(editor.get()));
-        Message.success("保存成功");
-    }
 
-    var serialize = () => {
-        editor.set(JSON.stringify(editor.get()))
-    }
 
-    var deserializeJSON = () => {
-        console.log(editor.getText())
-        try {
-            let data = JSON.parse(JSON.parse(editor.getText()))
-            console.log(data)
-            editor.set(data)
-        } catch (e) {
-            Message.error("反序列化失败")
-        }
-    }
-
-    var toGoStruct = () => {
-        let result = jsonToGo(JSON.stringify(editor.get()), null, null, false);
-        Modal.info({
-            icon: null,
-            title: <div style={{ textAlign: 'left' }}>Go结构体</div>,
-            content: <div>
-                <Input.TextArea value={result.go} rows={15}></Input.TextArea>
-            </div>,
-            style: { width: "65%" },
-        })
-    }
-
-    var clearJSON = () => {
-        editor.set({});
-    }
 
     var copy = () => {
         let text = editor.getText()
@@ -152,19 +118,27 @@ function App1() {
             Message.success("复制成功")
         })
     }
-    return <div>
-        <div style={{ height: jsonHeight }} id="jsoneditor" ></div>
-        <div style={{ textAlign: "center", marginTop: "15px" }}>
-            <Space>
-                <Button onClick={loadJSON} type="outline" icon={<IconImport />}>加载</Button>
-                <Button type="outline" icon={<IconSave />} onClick={saveJSON}>保存</Button>
-                <Button onClick={clearJSON} type="outline" icon={<IconRefresh />}>清空</Button>
-                <Button onClick={toGoStruct} type="outline" icon={<IconFire />}>转Go结构体</Button>
-                <Button onClick={serialize} type="outline" icon={<IconAlignLeft />}>序列化</Button>
-                <Button onClick={deserializeJSON} type="outline" icon={<IconAlignRight />}>反序列化</Button>
-                <Button onClick={copy} type="outline" icon={<IconCopy />}>复制</Button>
-            </Space>
-        </div>
+    return <div style={{ padding: '10px' }}>
+
+        <Modal>
+            <Input style={{ width: '50%', marginBottom: '10px' }} allowClear placeholder='检索' />
+        </Modal>
+        <Radio.Group defaultValue={'Beijing'} name='button-radio-group' style={{ margin: '10px auto', textAlign: 'center', display: 'block' }}>
+            {['全部', '下载目录', 'Guangzhou'].map((item) => {
+                return (
+                    <Radio key={item} value={item}>
+                        {({ checked }) => {
+                            return (
+                                <Button tabIndex={-1} key={item} type={checked ? 'primary' : 'default'}>
+                                    {item}
+                                </Button>
+                            );
+                        }}
+                    </Radio>
+                );
+            })}
+        </Radio.Group>
+        <Table columns={columns} data={data} pagination={false} />
     </div>
 }
 
