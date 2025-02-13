@@ -1,25 +1,23 @@
 import { invoke } from '@tauri-apps/api/core';
 
-var writeFile = async (file, content) => {
-    let Result = await invoke('write_file', {
-        name: file, content: content,
+var simpleReadDir = async (dir) => {
+    let Result = await invoke('simple_read_dir', {
+        dir: dir
     })
     return Result
 }
 
-var readFile = async (file, content) => {
-    let Result = await invoke('read_file', {
-        name: file, content: content,
+var deleteFile = async (path) => {
+    let Result = await invoke('delete_file_or_dir', {
+        path: path
     })
     return Result
 }
-
-
 
 export {
-    writeFile, readFile
+    simpleReadDir, deleteFile
 }
 
 export default {
-    writeFile, readFile
+    simpleReadDir, deleteFile
 }

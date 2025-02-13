@@ -11,105 +11,120 @@ import invoke from "@/util/invoke";
 import jsonToGo from "@/util/json-to-go";
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 const TabPane = Tabs.TabPane;
-var getCurrent = async () => {
+var readFile = async (name) => {
     try {
-        let value = await readTextFile('current.json', { baseDir: BaseDirectory.AppData });
+        let value = await readTextFile(name, { baseDir: BaseDirectory.AppData });
         return value
     } catch (e) {
-        return '{}'
+        return ''
     }
 }
-var setCurrent = async (value) => {
+
+var writeFile = async (name, value) => {
     try {
-        console.log("setCurrent", value)
         let dirExists = await exists('', {
             baseDir: BaseDirectory.AppData,
         });
         if (!dirExists) {
             await mkdir('', { baseDir: BaseDirectory.AppData });
         }
-        let fileExists = await exists('current.json', {
+        let fileExists = await exists(name, {
             baseDir: BaseDirectory.AppData,
         });
         if (!fileExists) {
-            let result = await create('current.json', { baseDir: BaseDirectory.AppData });
+            let result = await create(name, { baseDir: BaseDirectory.AppData });
         }
-        return await writeTextFile('current.json', value, { baseDir: BaseDirectory.AppData });
+        return await writeTextFile(name, value, { baseDir: BaseDirectory.AppData });
     } catch (e) {
-        console.log(e)
         return false;
     }
 }
-
-var getJsonHeight = () => {
-    return document.documentElement.clientHeight - 70
+var getDir = async () => {
+    try {
+        let value = await readFile('current_dir')
+        return value
+    } catch (e) {
+        return '';
+    }
+}
+var setDir = async (value) => {
+    return await writeFile('current_dir', value)
 }
 
-const columns = [
-    {
-        title: 'Name',
-        dataIndex: 'name',
-    },
-    {
-        title: 'Salary',
-        dataIndex: 'salary',
-    },
-    {
-        title: 'Address',
-        dataIndex: 'address',
-    },
-    {
-        title: 'Email',
-        dataIndex: 'email',
-    },
-];
-const data = [
-    {
-        key: '1',
-        name: 'Jane Doe',
-        salary: 23000,
-        address: '32 Park Road, London',
-        email: 'jane.doe@example.com',
-    },
-    {
-        key: '2',
-        name: 'Alisa Ross',
-        salary: 25000,
-        address: '35 Park Road, London',
-        email: 'alisa.ross@example.com',
-    },
-    {
-        key: '3',
-        name: 'Kevin Sandra',
-        salary: 22000,
-        address: '31 Park Road, London',
-        email: 'kevin.sandra@example.com',
-    },
-    {
-        key: '4',
-        name: 'Ed Hellen',
-        salary: 17000,
-        address: '42 Park Road, London',
-        email: 'ed.hellen@example.com',
-    },
-    {
-        key: '5',
-        name: 'William Smith',
-        salary: 27000,
-        address: '62 Park Road, London',
-        email: 'william.smith@example.com',
-    },
-];
+var readDir = async (dir) => {
+    try {
+        console.log(dir)
+        let value = await invoke.simpleReadDir(dir)
+        console.log(value)
+        return value
+    } catch (e) {
+        console.log(e)
+        return [];
+    }
+}
 
+
+
+
+
+const testDirs = [
+    {
+        "name": "下载",
+        "path": "C:\\Users\\liuhu\\Downloads"
+    }
+]
 
 var editor = null;
 function App1() {
-    const [jsonHeight, setJsonHeight] = useState(400)
-
+    const [currentDir, setCurrentDir] = useState('')
+    const [keyDirs, setKeyDirs] = useState(testDirs)
+    const [files, setFiles] = useState([])
+    const columns = [
+        {
+            title: '名字',
+            dataIndex: 'name',
+        },
+        {
+            title: '大小',
+            dataIndex: 'human_size',
+        },
+        {
+            title: '创建时间',
+            dataIndex: 'create_at',
+        },
+        {
+            title: '修改时间',
+            dataIndex: 'modify_at',
+        },
+        {
+            title: '操作',
+            dataIndex: 'action',
+            render: (text, record) => {
+                return <Space size="mini">
+                    <Button type='primary' status="danger" size='mini' onClick={toDelete.bind(this, record)}>
+                        删除
+                    </Button>
+                </Space>
+            }
+        }
+    ];
+    var initialize = async () => {
+        let dir = await getDir()
+        console.log("dir", dir)
+        if (dir.length < 1 && testDirs.length > 0) {
+            dir = testDirs[0].path
+        }
+        setCurrentDir(dir)
+        let data = await readDir(dir)
+        setFiles(data)
+    }
+    var getFiles = async () => {
+        let data = await readDir(currentDir)
+        setFiles(data)
+    }
     useEffect(() => {
+        initialize()
     }, [])
-
-
 
 
     var copy = () => {
@@ -118,27 +133,37 @@ function App1() {
             Message.success("复制成功")
         })
     }
+
+    var toDelete = async (record) => {
+        try {
+            let result = await invoke.deleteFile(record.path)
+            Message.success("删除成功")
+            getFiles()
+        } catch (e) {
+            console.log(e)
+            Message.error("删除失败")
+        }
+    }
     return <div style={{ padding: '10px' }}>
 
         <Modal>
             <Input style={{ width: '50%', marginBottom: '10px' }} allowClear placeholder='检索' />
         </Modal>
         <Radio.Group defaultValue={'Beijing'} name='button-radio-group' style={{ margin: '10px auto', textAlign: 'center', display: 'block' }}>
-            {['全部', '下载目录', 'Guangzhou'].map((item) => {
-                return (
-                    <Radio key={item} value={item}>
-                        {({ checked }) => {
-                            return (
-                                <Button tabIndex={-1} key={item} type={checked ? 'primary' : 'default'}>
-                                    {item}
-                                </Button>
-                            );
-                        }}
-                    </Radio>
-                );
+            {testDirs.map((item) => {
+                return <Radio key={item.path} value={item.path}>
+                    {({ checked }) => {
+                        return (
+                            <Button tabIndex={-1} key={item.path} type={checked ? 'primary' : 'default'}>
+                                {item.name}
+                            </Button>
+                        );
+                    }}
+                </Radio>
+
             })}
         </Radio.Group>
-        <Table columns={columns} data={data} pagination={false} />
+        <Table columns={columns} data={files} pagination={false} />
     </div>
 }
 

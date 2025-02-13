@@ -1,5 +1,5 @@
 use tauri::Error as TauriError;
-use std::{fmt::Debug, fs::File};
+use std::{fmt::Debug, fs::File, io};
 use serde::Serialize;
 use std::{fs::read_dir, path::Path};
 use readable::byte::Byte;
@@ -14,7 +14,8 @@ pub struct FileInfo {
     size : u64,
     human_size: String,
     create_at: String,
-    modified_at: String,
+    modify_at: String,
+    path : String,
 }
 
 #[tauri::command]
@@ -28,6 +29,7 @@ fn simple_read_dir(dir: String) -> Vec<FileInfo> {
         if let Err(_) = item {
             continue;
         }
+       
         if let Ok(ref file) = item {
             let meta = file.metadata().unwrap();
             let mut tmp_file_info = FileInfo {
@@ -36,7 +38,8 @@ fn simple_read_dir(dir: String) -> Vec<FileInfo> {
                 size: meta.len(),
                 human_size: Byte::from(meta.len()).to_string(),
                 create_at: String::from(""),
-                modified_at: String::from(""),
+                modify_at: String::from(""),
+                path : file.path().to_str().unwrap().to_string(),
             };
             
             if let Ok(value) = file.file_name().into_string() {
@@ -52,7 +55,7 @@ fn simple_read_dir(dir: String) -> Vec<FileInfo> {
             }
             if let Ok(value) = meta.modified() {
                 let datetime: DateTime<Utc> = value.into();
-                tmp_file_info.modified_at = datetime.format("%Y-%m-%d %H:%M:%S").to_string(); 
+                tmp_file_info.modify_at = datetime.format("%Y-%m-%d %H:%M:%S").to_string(); 
             }
             list.push(tmp_file_info);
         }
@@ -60,6 +63,20 @@ fn simple_read_dir(dir: String) -> Vec<FileInfo> {
     list
 }
 
+#[tauri::command]
+fn delete_file_or_dir(path: &str) -> Result<(), TauriError> {
+    let path = Path::new(path);
+    let  result : io::Result<()>;
+    if path.is_dir() {
+        result = std::fs::remove_dir_all(path);
+    } else {
+        result = std::fs::remove_file(path);
+    }
+    if result.is_err() {
+        return Err(TauriError::Io(result.err().unwrap())); 
+    }
+    Ok(())
+}
 
 
 pub fn run() {
@@ -68,7 +85,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![simple_read_dir])
+        .invoke_handler(tauri::generate_handler![simple_read_dir, delete_file_or_dir])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
