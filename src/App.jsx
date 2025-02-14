@@ -1,70 +1,16 @@
 import React, { useEffect, useState } from "react";
 import "jsoneditor/dist/jsoneditor.css";
 import "@arco-design/web-react/dist/css/arco.css";
-import { Button, Input, Space, Message, Tabs, Table, Radio, Modal } from "@arco-design/web-react";
+import { Button, Input, Space, Message, Tabs, Table, Form, Modal } from "@arco-design/web-react";
 import { writeTextFile, BaseDirectory, readTextFile, exists, create, mkdir } from '@tauri-apps/plugin-fs';
 import { IconSave, IconImport, IconFire, IconAlignLeft, IconRefresh, IconAlignRight, IconCopy } from "@arco-design/web-react/icon";
-import JSONEditor from 'jsoneditor';
 import dayjs from "dayjs";
 import { save, open } from '@tauri-apps/plugin-dialog';
 import invoke from "@/util/invoke";
-import jsonToGo from "@/util/json-to-go";
+import file from  "@/util/file";
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 const TabPane = Tabs.TabPane;
-var readFile = async (name) => {
-    try {
-        let value = await readTextFile(name, { baseDir: BaseDirectory.AppData });
-        return value
-    } catch (e) {
-        return ''
-    }
-}
-
-var writeFile = async (name, value) => {
-    try {
-        let dirExists = await exists('', {
-            baseDir: BaseDirectory.AppData,
-        });
-        if (!dirExists) {
-            await mkdir('', { baseDir: BaseDirectory.AppData });
-        }
-        let fileExists = await exists(name, {
-            baseDir: BaseDirectory.AppData,
-        });
-        if (!fileExists) {
-            let result = await create(name, { baseDir: BaseDirectory.AppData });
-        }
-        return await writeTextFile(name, value, { baseDir: BaseDirectory.AppData });
-    } catch (e) {
-        return false;
-    }
-}
-var getDir = async () => {
-    try {
-        let value = await readFile('current_dir')
-        return value
-    } catch (e) {
-        return '';
-    }
-}
-var setDir = async (value) => {
-    return await writeFile('current_dir', value)
-}
-
-var readDir = async (dir) => {
-    try {
-        console.log(dir)
-        let value = await invoke.simpleReadDir(dir)
-        console.log(value)
-        return value
-    } catch (e) {
-        console.log(e)
-        return [];
-    }
-}
-
-
-
+const FormItem = Form.Item;
 
 
 const testDirs = [
@@ -75,10 +21,22 @@ const testDirs = [
 ]
 
 var editor = null;
+const formItemLayout = {
+    labelCol: {
+        span: 5,
+    },
+    wrapperCol: {
+        span: 18,
+    },
+};
 function App1() {
+    const [form] = Form.useForm();
     const [currentDir, setCurrentDir] = useState('')
-    const [keyDirs, setKeyDirs] = useState(testDirs)
+    const [activeTab, setActiveTab] = useState('')
+    const [allDirs, setAllDirs] = useState([])
     const [files, setFiles] = useState([])
+    const [visible, setVisible] = React.useState(false);
+    const [selectDir, setSelectDir] = useState('')
     const columns = [
         {
             title: '名字',
@@ -109,17 +67,20 @@ function App1() {
         }
     ];
     var initialize = async () => {
-        let dir = await getDir()
-        console.log("dir", dir)
-        if (dir.length < 1 && testDirs.length > 0) {
-            dir = testDirs[0].path
+        let dirs = await file.getAllDirs()
+        setAllDirs(dirs)
+
+        let dir = await file.getCurrentDir()
+        if (dir.length < 1 && dirs.length > 0) {
+            dir = dirs[0].path
         }
         setCurrentDir(dir)
-        let data = await readDir(dir)
+        let data = await invoke.simpleReadDir(dir)
         setFiles(data)
     }
+
     var getFiles = async () => {
-        let data = await readDir(currentDir)
+        let data = await invoke.simpleReadDir(currentDir)
         setFiles(data)
     }
     useEffect(() => {
@@ -144,26 +105,101 @@ function App1() {
             Message.error("删除失败")
         }
     }
+
+    var handleAddTab = async () => {
+        setVisible(true)
+        form.setFieldsValue({
+            name: '',
+            path: '', 
+        })
+    };
+
+    var toAddPath = async () => {
+
+        let value = form.getFieldsValue()
+        console.log(value)
+        if (!value.name || value.name.length < 1) {
+            Message.error("请输入名字")
+            return 
+        }
+        console.log(selectDir)
+        if (selectDir.length < 1) {
+            Message.error("请选择文件夹")
+            return
+        }
+        let dirs =  [...allDirs, {
+            name: value.name,
+            path: selectDir ,
+        }]
+        console.log(dirs)
+        let result = await file.setAllDirs(dirs)
+        Message.success("添加成功")
+        setAllDirs(dirs)
+    }
+
+    var toSelectDir = async () => {
+        let dir = await open({
+            directory: true,
+            multiple: false,
+        }); 
+        console.log(dir)
+        if (dir.length > 0) {
+            setSelectDir(dir)
+        }
+    }
+
+    var onChangeTab = (key) => {
+        setCurrentDir(key)
+        getFiles()
+    }
     return <div style={{ padding: '10px' }}>
 
         <Modal>
             <Input style={{ width: '50%', marginBottom: '10px' }} allowClear placeholder='检索' />
         </Modal>
-        <Radio.Group defaultValue={'Beijing'} name='button-radio-group' style={{ margin: '10px auto', textAlign: 'center', display: 'block' }}>
-            {testDirs.map((item) => {
-                return <Radio key={item.path} value={item.path}>
-                    {({ checked }) => {
-                        return (
-                            <Button tabIndex={-1} key={item.path} type={checked ? 'primary' : 'default'}>
-                                {item.name}
-                            </Button>
-                        );
-                    }}
-                </Radio>
 
-            })}
-        </Radio.Group>
-        <Table columns={columns} data={files} pagination={false} />
+        <Tabs
+            type='card-gutter'
+            editable
+            activeTab={currentDir}
+            onAddTab={handleAddTab}
+            onChange={onChangeTab}
+            deleteButton={<></>}
+            size="small"
+        >
+            {
+                allDirs.map((item, index) => {
+                    return <TabPane destroyOnHide title={item.name} key={item.path}>
+                        <div style={{ paddingLeft: '10px', paddingBottom: '10px' }}>{item.path}</div>
+                    </TabPane>
+                })
+            }
+        </Tabs>
+
+        <Table columns={columns} data={files} pagination={false} border={false} />
+
+        <Modal
+            title='添加文件夹'
+            visible={visible}
+            onOk={toAddPath}
+            onCancel={() => setVisible(false)}
+            autoFocus={false}
+            focusLock={true}
+        >
+            <Form
+                autoComplete='off'
+               {...formItemLayout}
+               form={form}
+            >
+                <FormItem label='名字' field='name' >
+                    <Input placeholder='please enter your name' />
+                </FormItem>
+                <FormItem label='路径'  rules={[{ required: true }]}>
+                    {selectDir}
+                    <Button type='text' onClick={toSelectDir} size="small">选择文件夹</Button>
+                </FormItem>
+            </Form>
+        </Modal>
     </div>
 }
 

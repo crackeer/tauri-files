@@ -1,10 +1,15 @@
 import { invoke } from '@tauri-apps/api/core';
 
 var simpleReadDir = async (dir) => {
-    let Result = await invoke('simple_read_dir', {
-        dir: dir
-    })
-    return Result
+    try {
+        let Result = await invoke('simple_read_dir', {
+            dir: dir
+        }) 
+        return Result
+    } catch (e) {
+        console.log(e)
+        return [] 
+    }
 }
 
 var deleteFile = async (path) => {
