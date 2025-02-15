@@ -3,22 +3,18 @@ import "jsoneditor/dist/jsoneditor.css";
 import "@arco-design/web-react/dist/css/arco.css";
 import { Button, Input, Space, Message, Tabs, Table, Form, Modal } from "@arco-design/web-react";
 import { writeTextFile, BaseDirectory, readTextFile, exists, create, mkdir } from '@tauri-apps/plugin-fs';
-import { IconSave, IconImport, IconFire, IconAlignLeft, IconRefresh, IconAlignRight, IconCopy } from "@arco-design/web-react/icon";
+import { IconSave, IconImport, IconFire, IconAlignLeft, IconLaunch, IconStop, IconCopy } from "@arco-design/web-react/icon";
 import dayjs from "dayjs";
 import { save, open } from '@tauri-apps/plugin-dialog';
+import { openPath } from '@tauri-apps/plugin-opener';
+import {open as shellOpen} from '@tauri-apps/plugin-shell'
 import invoke from "@/util/invoke";
-import file from  "@/util/file";
+import file from "@/util/file";
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 const TabPane = Tabs.TabPane;
 const FormItem = Form.Item;
 
 
-const testDirs = [
-    {
-        "name": "下载",
-        "path": "C:\\Users\\liuhu\\Downloads"
-    }
-]
 
 var editor = null;
 const formItemLayout = {
@@ -32,7 +28,7 @@ const formItemLayout = {
 function App1() {
     const [form] = Form.useForm();
     const [currentDir, setCurrentDir] = useState('')
-    const [activeTab, setActiveTab] = useState('')
+    const [loading, setLoading] = useState(false)
     const [allDirs, setAllDirs] = useState([])
     const [files, setFiles] = useState([])
     const [visible, setVisible] = React.useState(false);
@@ -62,6 +58,10 @@ function App1() {
                     <Button type='primary' status="danger" size='mini' onClick={toDelete.bind(this, record)}>
                         删除
                     </Button>
+                    <Button type='primary' status="info" size='mini' onClick={async () => {
+                        console.log(record)
+                        await openPath('C:/Users/liuhu/Downloads/AdvancedIPScanner2.5.4594.1.exe') 
+                    }}>打开</Button>
                 </Space>
             }
         }
@@ -74,18 +74,29 @@ function App1() {
         if (dir.length < 1 && dirs.length > 0) {
             dir = dirs[0].path
         }
+        if (dir.length < 1) {
+            return
+        }
         setCurrentDir(dir)
-        let data = await invoke.simpleReadDir(dir)
-        setFiles(data)
     }
 
     var getFiles = async () => {
+        setFiles([])
+        setLoading(true)
         let data = await invoke.simpleReadDir(currentDir)
         setFiles(data)
+        setLoading(false)
     }
     useEffect(() => {
         initialize()
     }, [])
+
+    useEffect(() => {
+        if (currentDir.length < 1) {
+            return
+        }
+        getFiles()
+    }, [currentDir])
 
 
     var copy = () => {
@@ -110,26 +121,26 @@ function App1() {
         setVisible(true)
         form.setFieldsValue({
             name: '',
-            path: '', 
+            path: '',
         })
+        setSelectDir('')
     };
 
     var toAddPath = async () => {
-
         let value = form.getFieldsValue()
         console.log(value)
         if (!value.name || value.name.length < 1) {
             Message.error("请输入名字")
-            return 
+            return
         }
         console.log(selectDir)
         if (selectDir.length < 1) {
             Message.error("请选择文件夹")
             return
         }
-        let dirs =  [...allDirs, {
+        let dirs = [...allDirs, {
             name: value.name,
-            path: selectDir ,
+            path: selectDir,
         }]
         console.log(dirs)
         let result = await file.setAllDirs(dirs)
@@ -141,19 +152,52 @@ function App1() {
         let dir = await open({
             directory: true,
             multiple: false,
-        }); 
+        });
         console.log(dir)
         if (dir.length > 0) {
             setSelectDir(dir)
         }
     }
 
-    var onChangeTab = (key) => {
-        setCurrentDir(key)
-        getFiles()
-    }
-    return <div style={{ padding: '10px' }}>
+  
 
+    var onChangeTab = (key) => {
+        Message.info("切换到" + key)
+        setCurrentDir( key)
+    }
+
+    // 取消文件夹
+    var cancelDir = (index, item) => {
+        Modal.confirm({
+            title: '提示',
+            content: `确定取消该文件夹${item.name}(${item.path})?`,
+            onOk: async () => {
+                let tmpDirs = allDirs.filter((item, i) => {
+                    return i != index
+                })
+                setAllDirs(tmpDirs)
+                await file.setAllDirs(tmpDirs)
+                Message.success("取消成功")
+                if (tmpDirs.length < 1) {
+                    setCurrentDir('')
+                    setFiles([])
+                    return
+                }
+                if (index > tmpDirs.length - 1) {
+                    index = tmpDirs.length - 1
+                }
+                setCurrentDir(tmpDirs[index].path)
+                getFiles()
+
+            },
+        });
+    }
+    var toDir = (index, item) => {
+        console.log(index, item)
+        shellOpen(item.path)
+    }
+
+    return <div style={{ padding: '10px' }}>
         <Modal>
             <Input style={{ width: '50%', marginBottom: '10px' }} allowClear placeholder='检索' />
         </Modal>
@@ -170,13 +214,18 @@ function App1() {
             {
                 allDirs.map((item, index) => {
                     return <TabPane destroyOnHide title={item.name} key={item.path}>
-                        <div style={{ paddingLeft: '10px', paddingBottom: '10px' }}>{item.path}</div>
+                        <div style={{ paddingLeft: '10px', paddingBottom: '10px' }}>{item.path} <Space>
+
+                            <Button type='outline' size="mini" icon={<IconLaunch />}  onClick={toDir.bind(this, index, item)}></Button>
+                            <Button type='outline' size="mini" icon={<IconCopy />}></Button>
+                            <Button type='outline' size="mini" status="danger" icon={<IconStop />} onClick={cancelDir.bind(this, index, item)}></Button>
+                        </Space> </div>
                     </TabPane>
                 })
             }
         </Tabs>
 
-        <Table columns={columns} data={files} pagination={false} border={false} />
+        <Table columns={columns} data={files} pagination={false} border={false} loading={loading} />
 
         <Modal
             title='添加文件夹'
@@ -188,13 +237,13 @@ function App1() {
         >
             <Form
                 autoComplete='off'
-               {...formItemLayout}
-               form={form}
+                {...formItemLayout}
+                form={form}
             >
                 <FormItem label='名字' field='name' >
                     <Input placeholder='please enter your name' />
                 </FormItem>
-                <FormItem label='路径'  rules={[{ required: true }]}>
+                <FormItem label='路径' rules={[{ required: true }]}>
                     {selectDir}
                     <Button type='text' onClick={toSelectDir} size="small">选择文件夹</Button>
                 </FormItem>

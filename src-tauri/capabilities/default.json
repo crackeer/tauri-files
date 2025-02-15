@@ -7,12 +7,21 @@
   ],
   "permissions": [
     "core:default",
-    "opener:default",
+    "opener:allow-open-url",
+    "opener:allow-reveal-item-in-dir",
     "dialog:default",
     "fs:allow-app-write",
     "fs:allow-app-write-recursive",
     "fs:allow-app-read-recursive",
     "fs:create-app-specific-dirs",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "C:/"
+        }
+      ]
+    }
   ]
 }
