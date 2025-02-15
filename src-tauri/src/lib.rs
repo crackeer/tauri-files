@@ -1,10 +1,12 @@
-use tauri::Error as TauriError;
+use tauri::{Error as TauriError, Manager};
 use std::{fmt::Debug, fs::File, io};
 use serde::Serialize;
 use std::{fs::read_dir, path::Path};
 use readable::byte::Byte;
 use std::io::{Read, Write};
 use chrono::{DateTime, Utc};
+use tauri_plugin_opener::OpenerExt;
+use tauri::{Window};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 
 #[derive(Serialize)]
@@ -85,9 +87,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![simple_read_dir, delete_file_or_dir])
+        .invoke_handler(tauri::generate_handler![simple_read_dir, delete_file_or_dir, open_path])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
+#[tauri::command]
+fn open_path(window: Window, path_dir : String) {
+    _ = window.app_handle().opener().open_path(&path_dir, None::<&str>);
+}
 

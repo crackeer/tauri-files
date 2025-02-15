@@ -19,10 +19,17 @@ var deleteFile = async (path) => {
     return Result
 }
 
+var openPath = async (path) => {
+    let Result = await invoke('open_path', {
+        pathDir: path
+    }) 
+    console.log(Result)
+}
+
 export {
-    simpleReadDir, deleteFile
+    simpleReadDir, deleteFile, openPath
 }
 
 export default {
-    simpleReadDir, deleteFile
+    simpleReadDir, deleteFile, openPath
 }

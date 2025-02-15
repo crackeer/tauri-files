@@ -6,7 +6,7 @@ import { writeTextFile, BaseDirectory, readTextFile, exists, create, mkdir } fro
 import { IconSave, IconImport, IconFire, IconAlignLeft, IconLaunch, IconStop, IconCopy } from "@arco-design/web-react/icon";
 import dayjs from "dayjs";
 import { save, open } from '@tauri-apps/plugin-dialog';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openPath, openUrl } from '@tauri-apps/plugin-opener';
 import {open as shellOpen} from '@tauri-apps/plugin-shell'
 import invoke from "@/util/invoke";
 import file from "@/util/file";
@@ -59,8 +59,7 @@ function App1() {
                         删除
                     </Button>
                     <Button type='primary' status="info" size='mini' onClick={async () => {
-                        console.log(record)
-                        await openPath('C:/Users/liuhu/Downloads/AdvancedIPScanner2.5.4594.1.exe') 
+                        invoke.openPath(record.path) 
                     }}>打开</Button>
                 </Space>
             }
@@ -159,8 +158,6 @@ function App1() {
         }
     }
 
-  
-
     var onChangeTab = (key) => {
         Message.info("切换到" + key)
         setCurrentDir( key)
@@ -193,8 +190,7 @@ function App1() {
         });
     }
     var toDir = (index, item) => {
-        console.log(index, item)
-        shellOpen(item.path)
+        invoke.openPath(item.path)
     }
 
     return <div style={{ padding: '10px' }}>
