@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Key文件管理",
+  "productName": "个人文件管理",
   "version": "0.1.0",
   "identifier": "com.tauri-json.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Key文件管理",
+        "title": "个人文件管理",
         "width": 1000,
         "height": 800
       }
