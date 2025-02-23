@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "jsoneditor/dist/jsoneditor.css";
 import "@arco-design/web-react/dist/css/arco.css";
-import { Button, Input, Space, Message, Tabs, Table, Form, Modal,  Tooltip, Typography } from "@arco-design/web-react";
+import { Button, Input, Space, Message, Tabs, Table, Form, Modal, Tooltip, Typography } from "@arco-design/web-react";
 import { writeTextFile, BaseDirectory, readTextFile, exists, create, mkdir } from '@tauri-apps/plugin-fs';
 import { IconSave, IconImport, IconFire, IconAlignLeft, IconLaunch, IconStop, IconCopy, IconDelete } from "@arco-design/web-react/icon";
 import dayjs from "dayjs";
@@ -42,15 +42,6 @@ function App1() {
                     <Text>{text.substr(0, 27) + '...'}</Text>
                 </Tooltip>
             },
-            sorter: (a, b) => {
-                if (a.name > b.name)  {
-                    return 1
-                } else if (a.name < b.name) {
-                    return -1
-                } else {
-                    return 0
-                }
-            },
         },
         {
             title: '大小',
@@ -59,22 +50,13 @@ function App1() {
         },
         {
             title: '创建时间',
-            sorter: (a, b) => {
-                if (a.create_at > b.create_at)  {
-                    return 1
-                } else if (a.create_at < b.create_at) {
-                    return -1
-                } else {
-                    return 0
-                }
-            },
             dataIndex: 'create_at',
         },
         {
             title: '修改时间',
             dataIndex: 'modify_at',
             sorter: (a, b) => {
-                if (a.modify_at > b.modify_at)  {
+                if (a.modify_at > b.modify_at) {
                     return 1
                 } else if (a.modify_at < b.modify_at) {
                     return -1
@@ -88,11 +70,11 @@ function App1() {
             dataIndex: 'action',
             render: (text, record) => {
                 return <Space size="mini">
-                    <Button type="primary" status="primary"  icon={<IconCopy />} size='mini' onClick={copy.bind(this, record.path)}></Button>
-                    <Button type='primary' status="danger" size='mini' onClick={toDelete.bind(this, record)}  icon={<IconDelete />} >
+                    <Button type="primary" status="primary" icon={<IconCopy />} size='mini' onClick={copy.bind(this, record.path)}></Button>
+                    <Button type='primary' status="danger" size='mini' onClick={toDelete.bind(this, record)} icon={<IconDelete />} >
                     </Button>
                     <Button type='primary' status="info" size='mini' onClick={async () => {
-                        invoke.openPath(record.path) 
+                        invoke.openPath(record.path)
                     }} icon={<IconLaunch />}></Button>
                 </Space>
             }
@@ -113,9 +95,14 @@ function App1() {
     }
 
     var getFiles = async () => {
-        setFiles([])
         setLoading(true)
         let data = await invoke.simpleReadDir(currentDir)
+        data = data.sort( (a, b) => {
+            if(a.modify_at > b.modify_at) {
+                return -1
+            }
+            return 1
+        })
         setFiles(data)
         setLoading(false)
     }
@@ -138,14 +125,24 @@ function App1() {
     }
 
     var toDelete = async (record) => {
-        try {
-            let result = await invoke.deleteFile(record.path)
-            Message.success("删除成功")
-            getFiles()
-        } catch (e) {
-            console.log(e)
-            Message.error("删除失败")
-        }
+        Modal.confirm({
+            title: '提示',
+            style: {
+                width: '50%', 
+            },
+            content: <div>确定删除该文件<p>{record.path}?</p></div>,
+            onOk: async () => {
+                try {
+                    await invoke.deleteFile(record.path)
+                    Message.success("删除成功")
+                    getFiles()
+                } catch (e) {
+                    console.log(e)
+                    Message.error("删除失败")
+                }
+            },
+        });
+
     }
 
     var handleAddTab = async () => {
@@ -193,7 +190,7 @@ function App1() {
 
     var onChangeTab = (key) => {
         Message.info("切换到" + key)
-        setCurrentDir( key)
+        setCurrentDir(key)
     }
 
     // 取消文件夹
@@ -245,7 +242,7 @@ function App1() {
                     return <TabPane destroyOnHide title={item.name} key={item.path}>
                         <div style={{ paddingLeft: '10px', paddingBottom: '10px' }}>{item.path} <Space>
 
-                            <Button type='outline' size="mini" icon={<IconLaunch />}  onClick={toDir.bind(this, index, item)}></Button>
+                            <Button type='outline' size="mini" icon={<IconLaunch />} onClick={toDir.bind(this, index, item)}></Button>
                             <Button type='outline' size="mini" icon={<IconCopy />} onClick={copy.bind(this, item.path)}></Button>
                             <Button type='outline' size="mini" status="danger" icon={<IconStop />} onClick={cancelDir.bind(this, index, item)}></Button>
                         </Space> </div>
@@ -254,7 +251,7 @@ function App1() {
             }
         </Tabs>
 
-        <Table columns={columns} data={files} pagination={false} border={false} loading={loading} defaultSortOrder={'descend'}/>
+        <Table columns={columns} data={files} pagination={false} border={false} loading={loading} defaultSortOrder={'descend'} />
 
         <Modal
             title='添加文件夹'
